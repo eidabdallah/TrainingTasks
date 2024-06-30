@@ -17,6 +17,8 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 router.post('/addNewBook', upload.single('bookPdf'), BookController.addNewBook);
 router.get('/searchBooks', BookController.searchBooks);
+router.get('/exportBooks', BookController.exportBooks);
+
 
 
 
