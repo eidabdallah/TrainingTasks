@@ -1,4 +1,5 @@
 const knex = require('../../db/knex.js');
+const { body, validationResult } = require('express-validator');
 
 const getAllPublishers = async (req, res) => {
     try {
@@ -11,25 +12,32 @@ const getAllPublishers = async (req, res) => {
     }
 };
 
-const addPublisher = async (req, res) => {
-    try {
+const addPublisher = [
+    body('publisherName').notEmpty().withMessage('Publisher name is required'),
+    body('isStillWorking').notEmpty().withMessage('isStillWorking is required').isBoolean().withMessage('Is still working must be a boolean value'),
+    body('establishDate').notEmpty().withMessage('Publish date is required').isISO8601().withMessage('Establish date must be a valid date (YYYY-MM-DD)'),
+
+    async (req, res) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
+
         const { publisherName, establishDate, isStillWorking } = req.body;
 
-        // Parse establishDate to ensure it's in the correct format (YYYY-MM-DD)
-        const parsedEstablishDate = new Date(establishDate).toISOString().split('T')[0];
 
         const existingPublisher = await knex('publishers').where('publisherName', publisherName).first();
         if (existingPublisher) {
             return res.status(400).json({ message: "Publisher already exists." });
         }
 
-        await knex('publishers').insert({ publisherName, establishDate: parsedEstablishDate, isStillWorking });
+        // Insert new publisher
+        await knex('publishers').insert({ publisherName, establishDate, isStillWorking });
 
         return res.status(201).json({ message: "Publisher added successfully" });
-    } catch (error) {
-        return res.status(500).json({ message: 'Error adding publisher', error });
     }
-};
+];
+
 
 
 module.exports = {

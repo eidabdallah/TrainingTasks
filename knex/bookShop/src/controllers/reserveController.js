@@ -1,7 +1,16 @@
+const { body, validationResult } = require('express-validator');
 const knex = require('../../db/knex.js');
 
-const bookDetails = async (req, res) => {
-    try {
+const bookDetails = [
+    body('NumberOfUnits').notEmpty().withMessage('Number of units is required').isInt({ min: 1 }).withMessage('Number of units must be a positive integer'),
+    body('BookInfo').notEmpty().withMessage('Book information must be provided'),
+
+    async (req, res) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
+
         const { NumberOfUnits, BookInfo } = req.body;
 
         let unitPrice, bookId;
@@ -28,20 +37,30 @@ const bookDetails = async (req, res) => {
             unitPrice = book.unitPrice;
         }
 
-        const reserveRecord = await knex('temporaryreserves').insert({
+        const [reserveRecordId] = await knex('temporaryreserves').insert({
             BookInfo: bookId,
             NumberOfUnits,
             price: unitPrice,
         });
 
-        res.json({ message: 'Book details saved', reserveRecordId: reserveRecord[0] });
-    } catch (error) {
-        return res.status(500).json({ message: 'Error', error: error.stack });
+        res.json({ message: 'Book details saved', Reserveid: reserveRecordId });
     }
-};
+];
 
-const buyerDetails = async (req, res) => {
-    try {
+const buyerDetails = [
+    body('Reserveid').notEmpty().withMessage('Reserve ID is required'),
+    body('buyerName').notEmpty().withMessage('Buyer name is required'),
+    body('buyerAddress').notEmpty().withMessage('Buyer address is required'),
+    body('phoneNumber').notEmpty().withMessage('Phone number is required'),
+    body('nationalID').notEmpty().withMessage('National ID is required'),
+    body('purchaseDate').notEmpty().withMessage('purchaseDate ID is required').isISO8601().withMessage('Purchase date must be a valid date (YYYY-MM-DD)'),
+
+    async (req, res) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
+
         const { Reserveid, buyerName, buyerAddress, phoneNumber, nationalID, purchaseDate } = req.body;
 
         const record = await knex('temporaryreserves').where('id', Reserveid).first();
@@ -57,14 +76,20 @@ const buyerDetails = async (req, res) => {
             purchaseDate
         });
 
-        res.json({ message: 'Buyer details saved' });
-    } catch (error) {
-        return res.status(500).json({ message: 'Error', error: error.stack });
+        res.json({ message: 'Buyer details saved', Reserveid });
     }
-};
+];
 
-const paymentDetails = async (req, res) => {
-    try {
+const paymentDetails = [
+    body('Reserveid').notEmpty().withMessage('Reserve ID is required'),
+    body('paymentMethod').notEmpty().withMessage('Payment method is required'),
+
+    async (req, res) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
+
         const { Reserveid, paymentMethod } = req.body;
 
         if (paymentMethod !== 'Cash') {
@@ -112,11 +137,8 @@ const paymentDetails = async (req, res) => {
         await knex('temporaryReserves').where('id', Reserveid).del();
 
         res.json({ message: 'Payment details saved successfully.' });
-    } catch (error) {
-        return res.status(500).json({ message: 'Error', error: error.stack });
     }
-};
-
+];
 const getBookDetailsPage = async (req, res) => {
     try {
         const { bookId, bookTitle } = req.body;
@@ -160,10 +182,16 @@ const getBookDetailsPage = async (req, res) => {
     }
 };
 
+const getPaymentDetailsPage = [
+    body('reserveId').notEmpty().withMessage('Reserve ID is required'),
 
-const getPaymentDetailsPage = async (req, res) => {
-    try {
-        const { reserveId } = req.params;
+    async (req, res) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
+
+        const { reserveId } = req.body;
 
         const reservation = await knex('temporaryreserves').where('id', reserveId).first();
         if (!reservation) {
@@ -177,11 +205,8 @@ const getPaymentDetailsPage = async (req, res) => {
             numberOfUnits: reservation.NumberOfUnits,
             totalPrice
         });
-    } catch (error) {
-        return res.status(500).json({ message: 'Error', error: error.stack });
     }
-};
-
+];
 
 module.exports = {
     bookDetails,
@@ -190,3 +215,4 @@ module.exports = {
     getBookDetailsPage,
     getPaymentDetailsPage
 };
+

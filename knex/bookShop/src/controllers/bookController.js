@@ -1,11 +1,30 @@
 const knex = require('../../db/knex.js');
+const { body, validationResult } = require('express-validator');
 
-const addNewBook = async (req, res) => {
-    try {
+
+const addNewBook = [
+    body('bookTitle').notEmpty().withMessage('Book title is required'),
+    body('bookPublisher').notEmpty().withMessage('Book publisher is required'),
+    body('publishDate').notEmpty().withMessage('Publish date is required').isISO8601().withMessage('Publish date must be a valid date (YYYY-MM-DD)'),
+    body('bookAuthor').notEmpty().withMessage('Book author is required'),
+    body('bookTags').notEmpty().withMessage('Book tags are required').isString().withMessage('Book tags must be a string'),
+    body('availableUnits').notEmpty().withMessage('Available units are required').isInt({ min: 0 }).withMessage('Available units must be a positive integer'),
+    body('unitPrice').notEmpty().withMessage('Unit price is required').isInt({ min: 1 }).withMessage('Unit price must be a positive number'),
+
+    async (req, res) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
+
         const { bookTitle, bookPublisher, publishDate, bookAuthor, bookTags, availableUnits, unitPrice } = req.body;
-        const bookPdf = req.file ? `/${req.file.filename}` : null;
-        const tagsArray = bookTags ? bookTags.split(',').map(tag => tag.trim()) : [];
+        const { file } = req;
+        if (!file) {
+            return res.status(400).json({ message: "Book PDF is required." });
+        }
+        const bookPdf = `/${file.filename}`;
 
+        const tagsArray = bookTags ? bookTags.split(',').map(tag => tag.trim()) : [];
         const publisher = await knex('publishers').where('publisherName', bookPublisher).first('id');
         if (!publisher) {
             return res.status(404).json({ message: "Publisher not found." });
@@ -27,8 +46,6 @@ const addNewBook = async (req, res) => {
             return res.status(404).json({ message: "Author not found." });
         }
 
-        const parsedPublishDate = new Date(publishDate).toISOString().split('T')[0];
-
         const existingBook = await knex('books')
             .where({
                 bookTitle,
@@ -40,10 +57,10 @@ const addNewBook = async (req, res) => {
             return res.status(400).json({ message: "Book already exists." });
         }
 
-        const newBook = await knex('books').insert({
+        await knex('books').insert({
             bookTitle,
             PublisherId: publisher.id,
-            publishDate: parsedPublishDate,
+            publishDate,
             AuthorId: author.id,
             bookPdf,
             bookTags: JSON.stringify(tagsArray),
@@ -52,16 +69,26 @@ const addNewBook = async (req, res) => {
         });
 
         return res.status(201).json({ message: "Book added successfully." });
-
-    } catch (error) {
-        console.error('Error adding book:', error);
-        return res.status(500).json({ message: 'Error adding book', error: error.message });
     }
-};
+];
 
+const searchBooks = [
+    body('bookTitle').optional().notEmpty().withMessage('Book title must not be empty'),
+    body('bookPublisher').optional().notEmpty().withMessage('Book publisher must not be empty'),
+    body('bookAuthor').optional().notEmpty().withMessage('Book author must not be empty'),
+    body('tags').optional().notEmpty().withMessage('Tags must not be empty'),
+    body('any').optional().notEmpty().withMessage('Any field must not be empty'),
+    body('publishDateFrom').notEmpty().isISO8601().withMessage('Publish date from must be a valid date (YYYY-MM-DD)'),
+    body('publishDateTo').notEmpty().isISO8601().withMessage('Publish date to must be a valid date (YYYY-MM-DD)'),
+    body('priceFrom').notEmpty().isInt({ min: 0 }).withMessage('Price from must be a valid positive number'),
+    body('priceTo').notEmpty().isInt({ min: 0 }).withMessage('Price to must be a valid positive number'),
 
-const searchBooks = async (req, res) => {
-    try {
+    async (req, res) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
+
         const { bookTitle, bookPublisher, bookAuthor, tags, any, publishDateFrom, publishDateTo, priceFrom, priceTo } = req.body;
 
         let query = knex('books')
@@ -120,7 +147,6 @@ const searchBooks = async (req, res) => {
         }
 
         const books = await query;
-
         const booksWithAvailability = books.map(book => ({
             ID: book.id,
             Title: book.bookTitle,
@@ -132,12 +158,9 @@ const searchBooks = async (req, res) => {
         }));
 
         return res.status(200).json({ booksWithAvailability });
-
-    } catch (error) {
-        console.error('Error searching books:', error);
-        return res.status(500).json({ message: 'Error searching books', error: error.message });
     }
-};
+];
+
 
 module.exports = {
     addNewBook,
