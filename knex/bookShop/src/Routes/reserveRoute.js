@@ -3,9 +3,7 @@ const ReserveController = require('../controllers/reserveController.js');
 
 const router = express.Router();
 
-router.post('/bookDetails', ReserveController.bookDetails);
-router.post('/buyerDetails', ReserveController.buyerDetails);
-router.post('/paymentDetails', ReserveController.paymentDetails);
+router.post('/reserveBooking', ReserveController.reserveBooking);
 router.get('/getBookDetailsPage', ReserveController.getBookDetailsPage);
 router.get('/getPaymentDetailsPage', ReserveController.getPaymentDetailsPage);
 
